@@ -64,6 +64,7 @@
 .close-manual{display:block;margin:28px auto 0;min-width:180px}
 html[data-release="1"] .workbench,html[data-release="1"] .debug-numbers{display:none!important}
 .brand{padding-top:58px}
+#instrument:not([data-phase=search]):not([data-phase=result]) .top-controls{display:none}
 </style>
 </head>
 <body>
@@ -130,9 +131,22 @@ window.KaiiCampaign = {
   settings: {
     label: 'や印企画「あれを見ろ！」',
     schedule: '2026.11.25–29',
+    venue: 'シアター711',
+    // 共有の文章に付けるアプリのURL（本番）。
+    siteUrl: 'https://owri30.github.io/digital-kaii/',
+    // 共有の文章に付けるハッシュタグ。「！」はタグが途中で切れるので入れない。
+    hashtags: ['デジタル怪異測定器','あれを見ろ','や印企画'],
     startsAt: '2026-10-15T00:00:00+09:00',
     endsAt: '2026-11-30T23:59:00+09:00',
-    url: ''
+    url: 'https://yajirusi.corich.co/arewomiro/common'
+  },
+  // 共有の文章（2026-10-15ユーザー指定）。公演情報は告知期間中だけ入れる。
+  shareText(name, now = new Date()) {
+    const {label,schedule,venue,siteUrl,hashtags=[]} = this.settings,lines = ['デジタル怪異測定器',`検出結果「${name}」`];
+    if(this.getLabel(now)) lines.push(`${label}　${schedule}${venue ? '・' + venue : ''}`);
+    if(siteUrl) lines.push(siteUrl);
+    if(hashtags.length) lines.push(hashtags.map(tag => '#' + tag).join(' '));
+    return lines.join('\n');
   },
   getUrl(now = new Date()) { return this.getLabel(now) && this.settings.url ? this.settings.url : ''; },
   getLabel(now = new Date()) {
@@ -849,8 +863,14 @@ async function save(share=false) {
   if(phase!=='result')return;
   const token=generation,name=selected.name; $('save').disabled=true;$('share').disabled=true;
   try {const blob=await resultBlob();if(token!==generation)return;const file=new File([blob],`${name}-観測結果.png`,{type:'image/png'});
-    if(share&&navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:name});
-    else {download(blob,name);$('message').textContent=share?'画像を保存しました。SNSへ添付できます。':'観測記録を含む画像を保存しました。';}
+    const text=window.KaiiCampaign.shareText(name);
+    if(share&&navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:'デジタル怪異測定器',text});
+    else {
+      download(blob,name);
+      // 共有に対応していない環境では、共有の文章をクリップボードに入れて貼り付けやすくする。
+      const copied=share&&await navigator.clipboard?.writeText(text).then(()=>true,()=>false);
+      $('message').textContent=share?(copied?'画像を保存し、共有の文章をコピーしました。SNSに貼り付けて使えます。':'画像を保存しました。SNSへ添付できます。'):'観測記録を含む画像を保存しました。';
+    }
   } catch(error) {if(error.name!=='AbortError')$('message').textContent=error.message;}
   finally{$('save').disabled=false;$('share').disabled=false;}
 }
